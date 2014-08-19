@@ -3,9 +3,9 @@
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 		<title>Topographic Map</title>
-		<link rel="stylesheet" type="text/css" href="http://map.geoq.cn/ags27/jsapi/js/dojo/dijit/themes/claro/claro.css">
+		<link rel="stylesheet" href="http://js.arcgis.com/3.10/js/esri/css/esri.css">
 		<style>
-			html, body ,#map{
+			html, body, #map {
 				height: 100%;
 				width: 100%;
 			}
@@ -16,95 +16,92 @@
 			}
 		</style>
 		<script type="text/javascript">
-            djConfig = {
-                parseOnLoad : true,
-                isDebug : true,
-                baseUrl : "../",
-                modulePaths : {
-                    "steeeeps" : "src/steeeeps"
-                }
-            };
+			var dojoConfig = (function() {
+				var base = location.href.split("/");
+				base.pop();base.pop();
+				base = base.join("/");
+				return {
+					async : true,
+					isDebug : false,
+					parseOnLoad : true,
+					packages : [{
+						name : "steeeeps",
+						location : base + "/src/steeeeps"
+					}]
+				};
+			})();
 
 		</script>
-		<script type="text/javascript" src="http://map.geoq.cn/ags27/jsapi/"></script>
+		<script src="http://js.arcgis.com/3.10/"></script>
 		<script type="text/javascript">
-            dojo.require("esri.tasks.query");
-            dojo.require("steeeeps.cluster");
+			require(["esri/tasks/QueryTask", "esri/tasks/query", "steeeeps/cluster", 
+					"esri/geometry/Extent", "esri/map", "esri/layers/ArcGISTiledMapServiceLayer","dojo/domReady!"], 
+					function(QueryTask, Query, cluster, Extent, Map, ArcGISTiledMapServiceLayer) {
+				var map;
+				var cl;
+				function init() {
+					var initExtent = new Extent({
+						xmax : 18105180.267735254,
+						xmin : 5738280.587423306,
+						ymax : 6994504.877385709,
+						ymin : 2542812.350058228,
+						"spatialReference" : {
+							"wkid" : 102100
+						}
+					});
+					map = new Map("map", {
+						extent : initExtent
+					});
 
-            var map;
-            var cl;
-            function init() {
-                var initExtent = new esri.geometry.Extent({
-                    xmax : 18105180.267735254,
-                    xmin : 5738280.587423306,
-                    ymax : 6994504.877385709,
-                    ymin : 2542812.350058228,
-                    "spatialReference" : {
-                        "wkid" : 102100
-                    }
-                });
-                map = new esri.Map("map", {
-                    extent : initExtent
-                });
+					var basemap2 = new ArcGISTiledMapServiceLayer("http://www.arcgisonline.cn/ArcGIS/rest/services/ChinaOnlineStreetWarm/MapServer");
+					map.addLayer(basemap2);
 
-                var basemap2 = new esri.layers.ArcGISTiledMapServiceLayer("http://www.arcgisonline.cn/ArcGIS/rest/services/ChinaOnlineStreetWarm/MapServer");
-                map.addLayer(basemap2);
+					var resizeTimer;
+					dojo.connect(map, 'onLoad', function(theMap) {
+					});
 
-                var resizeTimer;
-                dojo.connect(map, 'onLoad', function(theMap) {
-                });
+					runQuery();
+				}
 
-                runQuery();
-            }
+				function runQuery() {
 
-            function runQuery() {
+					var queryTask = new QueryTask("http://124.205.245.98:9091/8433d392-f469-4d4b-bc56-7e422101c244/rest/services/chinaT/FeatureServer/0");
 
-                var queryTask = new esri.tasks.QueryTask("http://124.205.245.98:9091/8433d392-f469-4d4b-bc56-7e422101c244/rest/services/chinaT/FeatureServer/0");
+					var query = new Query();
+					query.returnGeometry = true;
+					query.where = '1=1';
+					query.outFields = ["*"];
 
-                var query = new esri.tasks.Query();
-                query.returnGeometry = true;
-                query.where = '1=1';
-                query.outFields = ["*"];
+					dojo.connect(queryTask, "onComplete", function(featureSet) {
+						console.log(featureSet);
+						cl = new cluster.ClusterLayer({
+							map : map,
+							displayOnPan : true,
+							esriGraphics : featureSet.features
+						});
+						map.addLayer(cl);
 
-                dojo.connect(queryTask, "onComplete", function(featureSet) {
-                    cl = new steeeeps.ClusterLayer({
-                        map : map,
-                        displayOnPan : true,
-                        esriGraphics : featureSet.features
-                    });
-                    //dojo.connect(cl, "onClusterClick", showClusterExtent);
-                    map.addLayer(cl);
+						// dojo.forEach(featureSet.features, function(feature) {
+						// var p = feature.geometry;
+						// var sms = new esri.symbol.SimpleMarkerSymbol(esri.symbol.SimpleMarkerSymbol.STYLE_CIRCLE, 15, new esri.symbol.SimpleLineSymbol(esri.symbol.SimpleLineSymbol.STYLE_SOLID, new dojo.Color([2, 0, 0, 1]), 1), new dojo.Color([0, 0, 0, 1]));
+						// var attr = feature.attributes;
+						// var temp = new esri.InfoTemplate("地名:", "${name}");
+						// var gra = new esri.Graphic(p, attr, temp);
+						// cl.addGraphic(gra);
+						//
+						// });
+					});
 
-                    // dojo.forEach(featureSet.features, function(feature) {
-                        // var p = feature.geometry;
-                        // var sms = new esri.symbol.SimpleMarkerSymbol(esri.symbol.SimpleMarkerSymbol.STYLE_CIRCLE, 15, new esri.symbol.SimpleLineSymbol(esri.symbol.SimpleLineSymbol.STYLE_SOLID, new dojo.Color([2, 0, 0, 1]), 1), new dojo.Color([0, 0, 0, 1]));
-                        // var attr = feature.attributes;
-                        // var temp = new esri.InfoTemplate("地名:", "${name}");
-                        // var gra = new esri.Graphic(p, attr, temp);
-                        // cl.addGraphic(gra);
-// 
-                    // });
-                });
+					dojo.connect(queryTask, "onError", function(err) {
+						alert(err.details);
+					});
 
-                dojo.connect(queryTask, "onError", function(err) {
-                    alert(err.details);
-                });
+					queryTask.execute(query);
+				}
+				init();
 
-                queryTask.execute(query);
-            }
+			});
 
-
-            function onClusterMouseOutHandle(event) {
-
-            }
-
-            function showClusterExtent(event) {
-                var extent = event.graphic.getClusterExtent();
-                map.setExtent(extent);
-            }
-
-
-            dojo.addOnLoad(init);
 		</script>
 	</head>
 	<body class="claro">
